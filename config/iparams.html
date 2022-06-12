@@ -1,0 +1,379 @@
+<html>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.css" />
+<link href="https://select2.github.io/select2/select2-3.5.3/select2.css?ts=2015-08-29T20%3A09%3A48%2B00%3A00" rel="stylesheet"
+/>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.js"></script>
+<script src="https://static.freshdev.io/fdk/2.0/assets/fresh_client.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.js"></script>
+<script src="https://select2.github.io/select2/select2-3.5.3/select2.js?ts=2015-08-29T20%3A09%3A48%2B00%3A00"></script>
+
+<head>
+    <style>
+        .dropdown {
+            width: 10%;
+            color: black;
+            border: 5;
+        }
+
+        .select2-container {
+            width: 100%;
+        }
+
+        .star {
+            color: #ff5959;
+        }
+
+        .select2-locked {
+            padding: 0px !important;
+        }
+
+        .fbold {
+            font-weight: bold;
+        }
+
+        .m10b {
+            margin-bottom: 10px;
+        }
+
+        .m20b {
+            margin-bottom: 20px;
+        }
+
+        .m20t {
+            margin-top: 20px;
+        }
+
+        input[type="checkbox"] {
+            margin: 2px 0 0;
+            line-height: normal;
+        }
+
+        input[type='checkbox'] {
+            -moz-appearance: none;
+            -webkit-appearance: none;
+            background: #fff;
+            border: solid 1px #dadfe3;
+            height: 13px;
+            position: relative;
+            width: 13px;
+            border-radius: 2px
+        }
+
+        input[type='checkbox']:focus {
+            outline: none
+        }
+
+        input[type='checkbox']:hover {
+            border: solid 1px #9aa1a6
+        }
+
+        input[type='checkbox']:checked {
+            -moz-appearance: none;
+            -webkit-appearance: none;
+            background: #02B878;
+            border: 3px solid #02b875;
+            padding: 0px
+        }
+
+        input[type='checkbox']:checked:before {
+            border: 0px;
+            position: relative;
+            left: 2px;
+            top: -2px;
+            border-right: 2px solid #fff;
+            border-bottom: 2px solid #fff;
+            transform: rotate(45deg);
+            content: '';
+            display: block;
+            width: 4px;
+            height: 9px
+        }
+    </style>
+</head>
+
+<body>
+    <div class="form-group" id="apiUrldiv">
+        <label for="fdUrl" class="fbold">Domain
+            <span class="star">*</span>
+        </label>
+        <input type="text" id="fdUrl" class="form-control" name="fdUrl">
+        <span>Please enter your freshdesk account domain name Ex:example.freshdesk.com</span>
+        <div id="error_url_div" class="star"></div>
+    </div>
+    <div class="form-group" id="apikeydiv">
+        <label for="txtApiKey" class="fbold">API Key
+            <span class="star">*</span>
+        </label>
+        <input type="text" id="txtApiKey" class="form-control" name="txtApiKey">
+        <span>Please enter your freshdesk API Key.
+            <a href="https://developers.freshdesk.com/api/#authentication" target="_blank">Trouble finding API key?</a>
+        </span>
+        <div id="error_div" class="star"></div>
+        <div class="loadDiv">
+            <span>Authenticating, please wait...</span>
+        </div>
+    </div>
+    <button type="button" class="btn btn-success" id="btnNext">Authenticate</button>
+    <div class="m20t notesettings">
+        <div class="col-sm-12 m10b">
+            <div class="m20b">Select Location, Agents and the list of Ticket fields to Hide and/or Disable for these agents on New Ticket and/or
+                Ticket Details pages:</div>
+            <label>Select Location:</label>
+            <div class="form-group">
+                <input name="newTicket" type="checkbox" value="new_ticket_background" /> New Ticket Page
+                <input name="ticket" type="checkbox" value="ticket_background" style="margin-left: 70px;" /> Ticket Page
+            </div>
+            <label>Available for Agent(s):</label>
+            <div class="form-group">
+                <select multiple name="e11" id="e11" class="populate agent_block">
+                </select>
+            </div>
+        </div>
+        <div>
+            <div class="col-sm-6">
+                <label>Select Ticket fields you wish to hide:</label>
+                <div class="form-group">
+                    <select multiple name="e9" id="e9" class="populate common">
+                    </select>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <label> Select Ticket fields you wish to disable: </label>
+                <div class="form-group">
+                    <select multiple name="e10" id="e10" class="populate common">
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript">
+        var updateConfigs, liList, agent_list, resp, map;
+        app.initialized().then(function (client) {
+            window.client = client;
+            jQuery("#e9,#e10,#e11").select2({
+                closeOnSelect: false
+            });
+            jQuery(".notesettings,.loadDiv").hide();
+            jQuery("#btnNext").click(function () {
+                jQuery(this).prop("disabled", true);
+                jQuery("#error_div,#error_url_div").empty();
+                jQuery(".loadDiv").show();
+                var fd_url = jQuery('#fdUrl').val();
+                var api_key = jQuery('#txtApiKey').val();
+                if (api_key.length != 0 && fd_url.length != 0) {
+                    var page = 1;
+                    ajax_agent(fd_url, api_key, page);
+                } else {
+                    validateError();
+                }
+            });
+        }, function (error) {
+            handleError(error);
+        });
+
+        function ajax_agent(fd_url, api_key, page) {
+            url = "https://" + fd_url + "/api/v2/agents?page=" + page;
+            var headers = {
+                "Authorization": "Basic " + btoa(api_key + ":x"),
+                "contentType": "application/json"
+            };
+            var options = {
+                headers: headers
+            };
+            client.request.get(url, options).then(function (agent_data) {
+                var result = JSON.parse(agent_data.response);
+                jQuery.each(result, function (key, value) {
+                    agent_list += "<option>" + value.contact.name + "</option>";
+                });
+                jQuery("#e11").empty().append(agent_list);
+                if (result.length < 30) {
+                    ajax_ticket_fields(fd_url, api_key);
+                } else {
+                    page = page + 1;
+                    ajax_agent(fd_url, api_key, page);
+                }
+            },
+                function (error) {
+                    handleError(error);
+                });
+        }
+
+        function ajax_ticket_fields(fd_url, api_key) {
+            url = "https://" + fd_url + "/api/v2/ticket_fields";
+            var headers = {
+                "Authorization": "Basic " + btoa(api_key + ":x"),
+                "contentType": "application/json"
+            };
+            var options = {
+                headers: headers
+            };
+            client.request.get(url, options).then(function (data) {
+                resp = JSON.parse(data.response);
+                if (resp != undefined) {
+                    jQuery('#apikeydiv,#btnNext,#apiUrldiv').hide();
+                    jQuery(".notesettings").show();
+                    data_setting_function(resp);
+                }
+            },
+                function (error) {
+                    handleError(error);
+                });
+        }
+
+        function data_setting_function(data) {
+            map = new Map();
+            var map1 = new Map();
+            jQuery.each(data, function (key, value) {
+                map[value.label] = value.name;
+                map1[value.name] = value.label;
+                if (!value.required_for_agents && value.label != 'Agent') {
+                    liList += "<option>" + value.label + "</option>";
+                }
+            });
+            jQuery("#e9,#e10").empty().append(liList);
+            if (updateConfigs != undefined) {
+                if (updateConfigs.checkedTicket != undefined) {
+                    jQuery("input[name=ticket] ").attr('checked', true);
+                }
+                if (updateConfigs.checkedNewTicket != undefined) {
+                    jQuery("input[name=newTicket] ").attr('checked', true);
+                }
+                var updatedHideList = [], updatedDisableList = [];
+                jQuery.each(updateConfigs.hide_map, function (k, v) {
+                    updatedHideList.push(map1[v]);
+                });
+                jQuery.each(updateConfigs.disable_map, function (k, v) {
+                    updatedDisableList.push(map1[v]);
+                });
+                jQuery('#e9').val(updatedHideList).trigger('change.select2');
+                jQuery('#e10').val(updatedDisableList).trigger('change.select2');
+                jQuery('#e11').val(updateConfigs.agent_list).trigger('change.select2');
+                jQuery.each(updateConfigs.agent_list, function (k, v) {
+                    jQuery('#e11').children("option:contains(" + v + ")").remove();
+                });
+                jQuery.each(updateConfigs.hide_fields, function (k, v) {
+                    jQuery('#e9,#e10').children("option:contains(" + v + ")").remove();
+                });
+                jQuery.each(updateConfigs.disable_fields, function (k, v) {
+                    jQuery('#e9,#e10').children("option:contains(" + v + ")").remove();
+                });
+            }
+        }
+
+        jQuery(".common").on("change", function (e) {
+            if (e.added != undefined) {
+                jQuery("#e9,#e10").children("option:contains(" + jQuery(this).val() + ")").not(this).remove();
+            } else if (e.removed != undefined) {
+                var item = "<option>" + e.removed.id + "</option>";
+                jQuery('#e9,#e10').append(item);
+            }
+        });
+
+        jQuery("#txtApiKey,#fdUrl").click(function () {
+            jQuery("#error_div,#error_url_div").empty();
+        });
+
+        function postConfigs() {
+            var hide_fields1 = jQuery("#e9").select2('data');
+            var disable_fields1 = jQuery("#e10").select2('data');
+            var agent_list1 = jQuery("#e11").select2('data');
+            var apiKey = jQuery("input[name=txtApiKey]").val();
+            var typeList = [],
+                typeList1 = [],
+                agentList = [],
+                hideMap = [],
+                disableMap = [];
+            var checkedNewTicket = $("input[name=newTicket]:checked").val();
+            var checkedTicket = $("input[name=ticket]:checked").val();
+            jQuery(hide_fields1).each(function (k1, v1) {
+                typeList.push(v1.text);
+                hideMap.push(map[v1.text]);
+            });
+            jQuery(disable_fields1).each(function (k2, v2) {
+                typeList1.push(v2.text);
+                disableMap.push(map[v2.text]);
+            });
+            jQuery(agent_list1).each(function (k3, v3) {
+                agentList.push(v3.text);
+            });
+            return {
+                __meta: {
+                    secure: ["apiKey"]
+                },
+                apiKey,
+                fdurl: jQuery('#fdUrl').val(),
+                hide_fields: typeList,
+                disable_fields: typeList1,
+                agent_list: agentList,
+                checkedNewTicket: checkedNewTicket,
+                checkedTicket: checkedTicket,
+                hide_map: hideMap,
+                disable_map: disableMap
+            }
+        }
+
+        function getConfigs(configs) {
+            updateConfigs = configs;
+            jQuery("input[name=txtApiKey]").val(configs.apiKey);
+            jQuery("input[name=fdUrl]").val(configs.fdurl);
+        }
+
+
+        function validate() {
+            var isValid = true;
+            var api_key = jQuery("input[name=txtApiKey]").val();
+            if (!(jQuery(".notesettings").is(":visible"))) {
+                jQuery("#error_url_div").empty();
+                jQuery("#error_div").empty().append("Please click Authenticate button to proceed with installation process.");
+                isValid = false;
+            } else if (api_key.length == 0) {
+                validateError();
+                isValid = false;
+            } else {
+                jQuery("#error_div,#error_url_div").hide();
+            }
+            return isValid;
+        }
+
+        function validateError() {
+            jQuery(".loadDiv").hide();
+            jQuery("#btnNext").prop("disabled", false);
+            var fd_url = jQuery('#fdUrl').val();
+            var api_key = jQuery('#txtApiKey').val();
+            if (api_key.length == 0) {
+                jQuery("#error_div").empty().append("<span>API Key is required.</span>");
+            } else {
+                jQuery("#error_div").empty();
+            }
+            if (fd_url.length == 0) {
+                jQuery("#error_url_div").empty().append("<span>Domain name is required.</span>");
+            } else {
+                jQuery("#error_url_div").empty();
+            }
+        }
+
+        function handleError(e) {
+            jQuery("#btnNext").prop("disabled", false);
+            jQuery(".loadDiv").hide();
+            if (e.status == 0 || e.status == 404) {
+                jQuery("#error_url_div").empty().append("Invalid Domain entered, please check the field and try again.");
+            } else if (e.status == 400) {
+                jQuery("#error_div").empty().append("Invalid Input entered, please verify the fields and try again.");
+            } else if (e.status == 401 || e.status == 403) {
+                jQuery("#error_div").empty().append("Invalid Credentials were given or Subscription to the service expired, please check with your Freshdesk Account.");
+            } else if (e.status == 429) {
+                jQuery("#error_div").empty().append("Too many requests were made, Please try after sometime.");
+            } else if (e.status == 500) {
+                jQuery("#error_div").empty().append("Unexpected error occurred, Please try after sometime.");
+            } else if (e.status == 502) {
+                jQuery("#error_div").empty().append("Error due to network issue, Please try again.");
+            } else if (e.status == 504) {
+                jQuery("#error_div").empty().append("Timeout error while processing the request.");
+            } else {
+                jQuery("#error_div").empty().append(e.statusText);
+            }
+        }
+    </script>
+</body>
+
+</html>
